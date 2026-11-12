@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trace-grag"
+version = "0.1.0"
+description = "Test-Guided Repository Analysis and Graph-based Evidence Retrieval for Gemma 4 SE agents"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Bobby Nandigam" }]
+dependencies = [
+    "networkx>=3.0",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "numpy>=1.24",
+    "rank-bm25>=0.2.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "coverage>=7.0"]
+eval = ["pandas>=2.0", "scikit-learn>=1.3", "matplotlib>=3.7"]
+
+[project.scripts]
+trace-grag = "trace_grag.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

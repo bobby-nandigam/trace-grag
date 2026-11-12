@@ -1,0 +1,11 @@
+.venv/
+.hfcache/
+.snapshots/
+__pycache__/
+*.pyc
+results/graphs/
+results/localization/*.jsonl
+.DS_Store
+*.egg-info/
+build/
+dist/
