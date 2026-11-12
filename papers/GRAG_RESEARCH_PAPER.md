@@ -1,6 +1,6 @@
 # TRACE-GRAG: Retrieval Recall Gates Bug Localization by a Local Gemma 4 Agent
 
-### Lexical, semantic, and graph retrieval feeding a local Gemma 4 (E2B) bug-localization agent — an honest, CI-backed study on consumer hardware
+### Lexical, semantic & graph retrieval feeding a local Gemma 4 (E2B) bug-localization agent: a CI-backed study on consumer hardware
 
 *Bobby Nandigam.* Submission to the Google — Gemma 4 Developer Agent **Paper Track** (2026).
 Topic: *Code Comprehension — code-graph generation, parsing, and embedding.*
