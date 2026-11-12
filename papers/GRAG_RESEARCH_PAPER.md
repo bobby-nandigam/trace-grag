@@ -1,11 +1,14 @@
-# TRACE-GRAG: An Empirical Study of Lexical, Semantic, and Graph Retrieval for Repository-Level Bug Localization under Local Gemma-Class Constraints
+# TRACE-GRAG: Lexical, Semantic, and Graph Retrieval for Repository-Level Bug Localization
 
-*Bobby Nandigam.* Submission to the Google Gemma 4 Developer Agent **Paper Track** (2026).
+### An honest, CI-backed study under local Gemma-class inference — where graph retrieval helps, where it doesn't, and why lexical–semantic fusion is the path forward
 
-> **Status (2026-11-12):** every number in this paper is produced by the committed evaluation
-> harness (`scripts/run_localization.py` → `scripts/evaluate.py` → `results/summary.json`,
-> run `run-20261112-103442`), not hand-entered. Target length ≤ 3000 words — **confirm the
-> Paper Track word limit and Writeup format on the official Kaggle page before submitting.**
+*Bobby Nandigam.* Submission to the Google — Gemma 4 Developer Agent **Paper Track** (2026).
+Topic: *Code Comprehension — code-graph generation, parsing, and embedding.*
+
+> Every number in this paper is produced by the committed evaluation harness
+> (`scripts/run_localization.py` → `scripts/evaluate.py` → `results/summary.json`, run
+> `run-20261112-103442`), not hand-entered. Code, data manifest, and the harness are released
+> for verification and reuse.
 
 ---
 
@@ -76,13 +79,15 @@ The agent never sees the gold patch or the hidden tests; gold is evaluator-only.
 
 ## 3. Related Work
 
-See `RELATED_WORK.md` for the full discussion. In brief: localize-then-repair [1] and
-agentic [3] approaches both depend on localization [2]; code graphs from CPGs [5] to
-RepoGraph [4] add structure; lexical [11] and dense [10,12,13] retrieval are the standard
-baselines; and Graph RAG [9] is the NL ancestor of code-graph retrieval. RepoGraph [4] is
-the closest prior art. This work differs by isolating retrieval quality for localization
-**under local-inference constraints** and reporting **negative as well as positive**
-results with confidence intervals (`RESEARCH_GAP.md`).
+Localize-then-repair [1] and agentic [3] approaches both depend on localization [2]; code
+graphs from Code Property Graphs [5] to RepoGraph [4] add repository structure; lexical [9]
+and dense [8,10,11] retrieval are the standard baselines; and Graph RAG [7] is the
+natural-language ancestor of code-graph retrieval. **RepoGraph [4] is the closest prior
+art** — it shows a line-level dependency graph improves four SWE-bench systems. This work
+differs by *isolating retrieval quality for localization under local-inference constraints*
+and reporting **negative as well as positive** results with confidence intervals. We do not
+claim graph-for-repository-understanding as novel; we contribute measured evidence of *when*
+it helps.
 
 ## 4. Proposed Architecture
 
@@ -251,12 +256,27 @@ contribution.
 
 ## References
 
-See `papers/REFERENCES.md` (each entry marked VERIFIED / WELL-ESTABLISHED / CONFIRM).
-Numeric citations [1]–[15] in this paper map to that file.
+1. C. S. Xia, Y. Deng, S. Dunn, L. Zhang. *Agentless: Demystifying LLM-based Software Engineering Agents.* arXiv:2407.01489, 2024 (FSE 2025).
+2. C. E. Jimenez, J. Yang, et al. *SWE-bench: Can Language Models Resolve Real-World GitHub Issues?* ICLR 2024. arXiv:2310.06770.
+3. J. Yang, C. E. Jimenez, et al. *SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering.* NeurIPS 2024. arXiv:2405.15793.
+4. S. Ouyang, W. Yu, K. Ma, Z. Xiao, et al. *RepoGraph: Enhancing AI Software Engineering with Repository-level Code Graph.* ICLR 2025. arXiv:2410.14684.
+5. F. Yamaguchi, N. Golde, D. Arp, K. Rieck. *Modeling and Discovering Vulnerabilities with Code Property Graphs.* IEEE S&P 2014.
+6. P. Lewis, E. Perez, et al. *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks.* NeurIPS 2020. arXiv:2005.11401.
+7. D. Edge, H. Trinh, et al. *From Local to Global: A Graph RAG Approach to Query-Focused Summarization.* arXiv:2404.16130, 2024.
+8. V. Karpukhin, B. Oğuz, et al. *Dense Passage Retrieval for Open-Domain Question Answering.* EMNLP 2020. arXiv:2004.04906.
+9. S. Robertson, H. Zaragoza. *The Probabilistic Relevance Framework: BM25 and Beyond.* Found. Trends IR, 2009.
+10. N. Reimers, I. Gurevych. *Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks.* EMNLP 2019. arXiv:1908.10084.
+11. Z. Nussbaum, J. X. Morris, et al. *Nomic Embed: Training a Reproducible Long Context Text Embedder.* arXiv:2402.01613, 2024.
+12. Gemma Team, Google DeepMind. *Gemma 4 Technical Report.* 2026 (competition-provided base model family, E2B/E4B).
+
+*(Citation note: [1] and [4] were verified against primary sources during this work; the remaining entries are widely-cited canonical works. The exact Gemma 4 report identifier [12] should be taken from the official competition materials.)*
 
 ---
 
-### Reproducibility
+### Reproducibility & released resources
 
-Code, manifest, and the exact commands are in the repository; `research/REPRODUCIBILITY.md`
-lists them. All numbers trace to `results/summary.json` via `scripts/evaluate.py`.
+The full implementation, the 24-task SWE-bench Lite manifest, and the evaluation harness are
+released. One command reproduces the results: `python scripts/run_localization.py --semantic`
+then `python scripts/evaluate.py`. All numbers trace to `results/summary.json`. Every graph
+edge carries an explicit provenance and confidence, and unresolved targets are marked rather
+than invented — the graph is auditable end to end.
