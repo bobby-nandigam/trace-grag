@@ -50,19 +50,25 @@ class OllamaChat:
         base_url: str = DEFAULT_BASE_URL,
         timeout: int = 120,
         temperature: float = 0.0,
-        num_predict: int = 24,
+        num_predict: int = 64,
+        think: bool = False,
     ) -> None:
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.temperature = temperature
         self.num_predict = num_predict
+        # Gemma 4 (E2B/E4B) is a reasoning model: with thinking on, its tokens go to
+        # a separate `thinking` field and the answer may never fit the budget. For a
+        # single bounded choice we disable thinking to get a direct, parseable answer.
+        self.think = think
 
     def __call__(self, prompt: str) -> str:
         payload = json.dumps({
             "model": self.model,
             "prompt": prompt,
             "stream": False,
+            "think": self.think,
             "options": {"temperature": self.temperature, "num_predict": self.num_predict},
         }).encode("utf-8")
         req = urllib.request.Request(
