@@ -1,4 +1,4 @@
-# TRACE-GRAG: Does Retrieval Quality Help a Local Gemma 4 Agent Localize Bugs?
+# TRACE-GRAG: Retrieval Recall Gates Bug Localization by a Local Gemma 4 Agent
 
 ### Lexical, semantic, and graph retrieval feeding a local Gemma 4 (E2B) bug-localization agent — an honest, CI-backed study on consumer hardware
 
