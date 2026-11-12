@@ -51,7 +51,8 @@ print(g.search_symbols("divide"))      # symbol search (an agent tool)
 | Disk-safe repo snapshots | ✅ |
 | BM25 (E1) + static graph (E3) retrieval | ✅ |
 | Localization metrics (Recall/hit@k, MRR, bootstrap CIs) | ✅ |
-| Semantic (E2), test-guided (E4), combined ranker, compression (E5) | ⏳ |
+| Semantic retrieval (E2, `nomic-embed-text` + batched/truncated embedding) | ✅ |
+| Test-guided (E4), combined ranker, compression (E5) | ⏳ |
 | Gemma E2B agent + bounded repair + Tier-B execution pilot | ⏳ |
 
 ## Design
