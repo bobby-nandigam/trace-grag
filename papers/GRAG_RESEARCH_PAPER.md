@@ -267,9 +267,7 @@ contribution.
 9. S. Robertson, H. Zaragoza. *The Probabilistic Relevance Framework: BM25 and Beyond.* Found. Trends IR, 2009.
 10. N. Reimers, I. Gurevych. *Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks.* EMNLP 2019. arXiv:1908.10084.
 11. Z. Nussbaum, J. X. Morris, et al. *Nomic Embed: Training a Reproducible Long Context Text Embedder.* arXiv:2402.01613, 2024.
-12. Gemma Team, Google DeepMind. *Gemma 4 Technical Report.* 2026 (competition-provided base model family, E2B/E4B).
-
-*(Citation note: [1] and [4] were verified against primary sources during this work; the remaining entries are widely-cited canonical works. The exact Gemma 4 report identifier [12] should be taken from the official competition materials.)*
+12. Gemma Team, Google DeepMind. *Gemma 4 Technical Report.* arXiv:2607.02770, 2026 (competition-provided base model family; E2B/E4B ≈ 2.3B/4.5B effective params). Model card: ai.google.dev/gemma/docs/core/model_card_4.
 
 ---
 

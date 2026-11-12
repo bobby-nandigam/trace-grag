@@ -61,10 +61,10 @@ No citation below was invented. Where a detail is uncertain it is marked, not gu
 
 ### Models
 
-14. **[CONFIRM]** Gemma Team, Google DeepMind. *Gemma 4 Technical Report.* (2026). The
-    competition-provided base model family (E2B/E4B). **The exact report title / arXiv id
-    must be taken from the official competition materials before submission** — do not cite
-    a guessed identifier.
+14. **[VERIFIED]** Gemma Team, Google DeepMind. *Gemma 4 Technical Report.* arXiv:2607.02770
+    (2026). Competition-provided base model family; E2B/E4B ≈ 2.3B/4.5B effective parameters,
+    128K context. Model card: ai.google.dev/gemma/docs/core/model_card_4. (Confirmed via
+    arXiv + HuggingFace papers during this work.)
 15. **[WELL-ESTABLISHED]** Gemma Team, Google DeepMind. *Gemma 2: Improving Open Language
     Models at a Practical Size.* arXiv:2408.00118 (2024). (Prior Gemma generation, for
     background on the open-weights lineage.)
