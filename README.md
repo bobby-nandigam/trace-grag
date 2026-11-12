@@ -52,8 +52,9 @@ print(g.search_symbols("divide"))      # symbol search (an agent tool)
 | BM25 (E1) + static graph (E3) retrieval | ✅ |
 | Localization metrics (Recall/hit@k, MRR, bootstrap CIs) | ✅ |
 | Semantic retrieval (E2, `nomic-embed-text` + batched/truncated embedding) | ✅ |
+| Gemma 4 E2B localization agent (retrieval → model pick, 24 tasks) | ✅ |
 | Test-guided (E4), combined ranker, compression (E5) | ⏳ |
-| Gemma E2B agent + bounded repair + Tier-B execution pilot | ⏳ |
+| Multi-turn repair loop + Tier-B execution pilot | ⏳ |
 
 ## Design
 

@@ -1,0 +1,33 @@
+{
+  "run": "gemma-gemma4_e2b-20261112-121138",
+  "model": "gemma4:e2b",
+  "top_k": 10,
+  "n_tasks": 24,
+  "errors": 0,
+  "strategies": {
+    "bm25": {
+      "gemma_hit@1": 0.375,
+      "gold_in_top10": 0.5833,
+      "retr_top1": 0.2083,
+      "abstain_rate": 0.0,
+      "gemma_given_gold_in_top10": 0.6429,
+      "n": 24
+    },
+    "semantic": {
+      "gemma_hit@1": 0.4583,
+      "gold_in_top10": 0.7083,
+      "retr_top1": 0.4167,
+      "abstain_rate": 0.0,
+      "gemma_given_gold_in_top10": 0.6471,
+      "n": 24
+    },
+    "graph": {
+      "gemma_hit@1": 0.375,
+      "gold_in_top10": 0.5833,
+      "retr_top1": 0.2083,
+      "abstain_rate": 0.0,
+      "gemma_given_gold_in_top10": 0.6429,
+      "n": 24
+    }
+  }
+}

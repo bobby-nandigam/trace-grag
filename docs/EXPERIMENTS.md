@@ -61,9 +61,30 @@ graph expansion, is the promising direction the next experiments must test.
 largest graphs (sympy ~24k nodes, astropy ~19k). Localization in very large repos
 is the open hard case — a strong motivation for test-guided narrowing.
 
+## RQ2 — does retrieval quality help a local Gemma 4 agent localize bugs?
+
+**Run `gemma-gemma4_e2b-20261112-121138` (24 tasks, 0 errors, 0 abstentions).** Each retriever's
+top-10 candidates are given to local **Gemma 4 E2B** (Ollama 0.40.16, thinking disabled, temp 0),
+which picks the symbol to fix.
+
+| feeding retriever | gemma_hit@1 | gold_in_top10 | retriever top-1 | pick-rate \| gold in top-10 |
+|---|---|---|---|---|
+| BM25 (E1)     | 0.375 | 0.583 | 0.208 | 0.643 |
+| Semantic (E2) | 0.458 | 0.708 | 0.417 | 0.647 |
+| Graph (E3)    | 0.375 | 0.583 | 0.208 | 0.643 |
+
+- **F4 — recall gates the agent:** semantic's higher recall@10 (0.708) → best Gemma localization (0.458).
+- **F5 — Gemma reranking nearly doubles top-1:** BM25 0.208 → 0.375; graph 0.208 → 0.375. A small
+  local model reading 10 candidates repairs weak retrieval ranking.
+- **F6 — picking skill is retriever-agnostic:** given gold in top-10, Gemma picks it ~64% regardless
+  of source. Graph (E3) = BM25 (E1) exactly, for the agent too.
+
+Reproduce: `python scripts/run_gemma_localization.py --semantic` → `results/gemma_localization/summary.json`.
+
 ## Planned (not yet run)
 
 - ✅ **E2 semantic retrieval** (`nomic-embed-text` via Ollama) — **done** (run above).
+- ✅ **Gemma 4 E2B localization agent** (retrieval → model pick) — **done** (RQ2).
 - E4 test-guided ranking + E5 full TRACE-GRAG with budget-aware compression.
 - Ablations A1–A5.
 - Tier-B patch-execution pilot (3–5 tasks) with the Gemma E2B agent (pending a servable
