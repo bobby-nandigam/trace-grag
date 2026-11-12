@@ -130,9 +130,16 @@ class SemanticRetriever:
         self,
         embedder: Optional[EmbedFn] = None,
         batch_size: int = 32,
+        max_doc_chars: int = 4000,
     ) -> None:
         self._embedder: EmbedFn = embedder or OllamaEmbedder()
         self.batch_size = max(1, batch_size)
+        # Truncate each document to stay under the embedder's context window.
+        # A single over-long input (e.g. a giant class docstring) otherwise makes
+        # the batched /api/embed endpoint reject the whole batch with HTTP 400
+        # ("input length exceeds the context length"). The high-signal head
+        # (qualified name, signature, docstring start) is preserved.
+        self.max_doc_chars = max(256, max_doc_chars)
         self._ids: list[str] = []
         self._matrix: Optional[np.ndarray] = None       # (n_candidates, dim), L2-normalized
         self._cache: dict[str, list[float]] = {}        # source_hash -> embedding
@@ -160,7 +167,7 @@ class SemanticRetriever:
             if key and key in self._cache:
                 vectors[i] = self._cache[key]
             else:
-                to_embed.append(node_document(n))
+                to_embed.append(node_document(n)[: self.max_doc_chars])
                 to_embed_idx.append(i)
 
         if to_embed:
@@ -181,7 +188,7 @@ class SemanticRetriever:
             self.index(graph)
         if self._matrix is None or not self._ids:
             return []
-        q = self._embedder([issue])[0]
+        q = self._embedder([issue[: self.max_doc_chars]])[0]
         qv = np.asarray(q, dtype=np.float64)
         qn = np.linalg.norm(qv)
         if qn == 0.0 or math.isnan(qn):

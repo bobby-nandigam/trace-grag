@@ -79,6 +79,19 @@ def test_semantic_cache_avoids_recompute(graph):
     assert calls["n"] == after_first, "unchanged symbols should not be re-embedded"
 
 
+def test_long_documents_are_truncated_before_embedding(graph):
+    seen = {"max": 0}
+
+    def recording(texts):
+        for t in texts:
+            seen["max"] = max(seen["max"], len(t))
+        return _hash_embed(texts)
+
+    r = SemanticRetriever(embedder=recording, max_doc_chars=500)
+    r.rank("x" * 9000, graph)  # over-long issue + any over-long node docs
+    assert seen["max"] <= 500, "inputs must be truncated to max_doc_chars"
+
+
 def test_empty_graph_ranks_empty():
     r = SemanticRetriever(embedder=_hash_embed)
     g = RepoGraph(repo="empty")
