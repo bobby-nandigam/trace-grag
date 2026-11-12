@@ -87,7 +87,7 @@ def test_empty_graph_ranks_empty():
 
 def test_ollama_embedder_errors_clearly_when_down():
     # Point at a closed port so the connection fails fast and surfaces EmbeddingError.
-    emb = OllamaEmbedder(base_url="http://localhost:1", timeout=2)
+    emb = OllamaEmbedder(base_url="http://localhost:1", timeout=2, max_retries=1)
     with pytest.raises(EmbeddingError):
         emb(["hello"])
 

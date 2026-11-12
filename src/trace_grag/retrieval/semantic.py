@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import time
 import urllib.error
 import urllib.request
 from typing import Callable, Optional
@@ -50,46 +51,68 @@ class EmbeddingError(RuntimeError):
 
 
 class OllamaEmbedder:
-    """Default embedding backend: Ollama's ``/api/embeddings`` endpoint.
+    """Default embedding backend: Ollama's batched ``/api/embed`` endpoint.
 
-    Uses one request per text (the endpoint available in Ollama ≥0.1 and verified
-    on the project's 0.18.2). Stdlib-only; no ``requests`` dependency.
+    Embeds a whole batch in one request (far fewer round-trips than one-per-text,
+    which both speeds up large repos and avoids the transient HTTP 500s seen when
+    the server is hammered with thousands of tiny requests). Transient 5xx and
+    connection errors are retried with exponential backoff; a persistent failure
+    raises ``EmbeddingError`` rather than returning zeros. Stdlib-only.
     """
 
     def __init__(
         self,
         model: str = DEFAULT_MODEL,
         base_url: str = DEFAULT_BASE_URL,
-        timeout: int = 60,
+        timeout: int = 120,
+        max_retries: int = 4,
+        backoff_base: float = 1.0,
     ) -> None:
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.max_retries = max(1, max_retries)
+        self.backoff_base = backoff_base
 
-    def _embed_one(self, text: str) -> list[float]:
-        payload = json.dumps({"model": self.model, "prompt": text}).encode("utf-8")
+    def __call__(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        payload = json.dumps({"model": self.model, "input": texts}).encode("utf-8")
         req = urllib.request.Request(
-            f"{self.base_url}/api/embeddings",
+            f"{self.base_url}/api/embed",
             data=payload,
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except (urllib.error.URLError, OSError) as e:
-            raise EmbeddingError(
-                f"could not reach embedding backend at {self.base_url} "
-                f"(model={self.model}): {e}. Is `ollama serve` running and the "
-                f"model pulled?"
-            ) from e
-        emb = data.get("embedding")
-        if not emb:
-            raise EmbeddingError(f"empty embedding for model={self.model}: {data}")
-        return [float(x) for x in emb]
-
-    def __call__(self, texts: list[str]) -> list[list[float]]:
-        return [self._embed_one(t) for t in texts]
+        last_err: Optional[Exception] = None
+        for attempt in range(self.max_retries):
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                embs = data.get("embeddings")
+                if not embs or len(embs) != len(texts):
+                    raise EmbeddingError(
+                        f"backend returned {len(embs) if embs else 0} embeddings "
+                        f"for {len(texts)} inputs (model={self.model})"
+                    )
+                return [[float(x) for x in v] for v in embs]
+            except urllib.error.HTTPError as e:
+                last_err = e
+                if e.code < 500:  # client error — retrying won't help
+                    raise EmbeddingError(
+                        f"embedding backend rejected request (HTTP {e.code}, "
+                        f"model={self.model}): {e}"
+                    ) from e
+                # 5xx: transient, fall through to backoff
+            except (urllib.error.URLError, OSError, EmbeddingError) as e:
+                last_err = e
+            if attempt < self.max_retries - 1:
+                time.sleep(self.backoff_base * (2 ** attempt))
+        raise EmbeddingError(
+            f"could not get embeddings from {self.base_url} after "
+            f"{self.max_retries} attempts (model={self.model}): {last_err}. "
+            f"Is `ollama serve` running and the model pulled?"
+        )
 
 
 def _l2_normalize(mat: np.ndarray) -> np.ndarray:

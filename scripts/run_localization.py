@@ -77,7 +77,13 @@ def run_task(task: dict, keep_graph: bool, use_semantic: bool = False) -> dict:
 
     for r in build_retrievers(use_semantic):
         ts = time.time()
-        ranked = r.rank(task["problem_statement"], g)
+        try:
+            ranked = r.rank(task["problem_statement"], g)
+        except Exception as e:  # noqa: BLE001 - isolate per-strategy failure
+            # One strategy failing (e.g. the embedding backend 500ing) must NOT
+            # discard the other strategies' results for this task.
+            result.setdefault("strategy_errors", {})[r.name] = repr(e)
+            continue
         latency = time.time() - ts
         ranked_ids = [nid for nid, _s in ranked]
         sc = score_ranking(ranked_ids, gold_ids)
