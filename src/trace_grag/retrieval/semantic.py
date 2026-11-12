@@ -1,0 +1,169 @@
+"""
+Semantic (dense) retrieval — E2 baseline.
+
+Embeds each candidate symbol's ``node_document`` and the issue text with a local
+embedding model (default: ``nomic-embed-text`` served by Ollama), then ranks
+candidates by cosine similarity. This is the conventional **vector retrieval**
+baseline the research question compares graph/dependency-aware retrieval against.
+
+Design choices (consistent with the rest of the package):
+  * Implements the ``Retriever`` protocol (``name`` + ``rank``) — a drop-in
+    alongside ``BM25Retriever`` (E1) and ``GraphRetriever`` (E3). No existing
+    module is modified.
+  * The embedding backend is **injected** (``embedder`` callable). The default
+    ``OllamaEmbedder`` uses only the standard library (``urllib``), so no new
+    dependency is added; tests inject a deterministic fake embedder and therefore
+    never require a running Ollama server.
+  * Embeddings are cached by the node's ``source_hash`` so re-indexing an
+    unchanged symbol is free and runs are reproducible.
+  * Never fabricates: if the backend is unreachable, the default embedder raises a
+    clear ``EmbeddingError`` rather than returning zeros that would silently skew
+    similarity.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import math
+import urllib.error
+import urllib.request
+from typing import Callable, Optional
+
+import numpy as np
+
+from trace_grag.graph.repo_graph import RepoGraph
+from trace_grag.graph.schema import CodeNode
+from trace_grag.retrieval.base import candidate_nodes, node_document
+
+logger = logging.getLogger(__name__)
+
+# An embedder maps a batch of texts to a list of equal-length float vectors.
+EmbedFn = Callable[[list[str]], list[list[float]]]
+
+DEFAULT_MODEL = "nomic-embed-text"
+DEFAULT_BASE_URL = "http://localhost:11434"
+
+
+class EmbeddingError(RuntimeError):
+    """Raised when the embedding backend cannot produce an embedding."""
+
+
+class OllamaEmbedder:
+    """Default embedding backend: Ollama's ``/api/embeddings`` endpoint.
+
+    Uses one request per text (the endpoint available in Ollama ≥0.1 and verified
+    on the project's 0.18.2). Stdlib-only; no ``requests`` dependency.
+    """
+
+    def __init__(
+        self,
+        model: str = DEFAULT_MODEL,
+        base_url: str = DEFAULT_BASE_URL,
+        timeout: int = 60,
+    ) -> None:
+        self.model = model
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
+
+    def _embed_one(self, text: str) -> list[float]:
+        payload = json.dumps({"model": self.model, "prompt": text}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{self.base_url}/api/embeddings",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.URLError, OSError) as e:
+            raise EmbeddingError(
+                f"could not reach embedding backend at {self.base_url} "
+                f"(model={self.model}): {e}. Is `ollama serve` running and the "
+                f"model pulled?"
+            ) from e
+        emb = data.get("embedding")
+        if not emb:
+            raise EmbeddingError(f"empty embedding for model={self.model}: {data}")
+        return [float(x) for x in emb]
+
+    def __call__(self, texts: list[str]) -> list[list[float]]:
+        return [self._embed_one(t) for t in texts]
+
+
+def _l2_normalize(mat: np.ndarray) -> np.ndarray:
+    norms = np.linalg.norm(mat, axis=1, keepdims=True)
+    norms[norms == 0.0] = 1.0  # avoid division by zero for empty docs
+    return mat / norms
+
+
+class SemanticRetriever:
+    """E2 dense retrieval over candidate symbols (FUNCTION/METHOD/CLASS)."""
+
+    name = "semantic"
+
+    def __init__(
+        self,
+        embedder: Optional[EmbedFn] = None,
+        batch_size: int = 32,
+    ) -> None:
+        self._embedder: EmbedFn = embedder or OllamaEmbedder()
+        self.batch_size = max(1, batch_size)
+        self._ids: list[str] = []
+        self._matrix: Optional[np.ndarray] = None       # (n_candidates, dim), L2-normalized
+        self._cache: dict[str, list[float]] = {}        # source_hash -> embedding
+
+    # ── indexing ──────────────────────────────────────────────────────────────
+    def _embed_texts(self, texts: list[str]) -> list[list[float]]:
+        out: list[list[float]] = []
+        for i in range(0, len(texts), self.batch_size):
+            out.extend(self._embedder(texts[i : i + self.batch_size]))
+        return out
+
+    def index(self, graph: RepoGraph) -> None:
+        cands: list[CodeNode] = candidate_nodes(graph)
+        self._ids = [n.id for n in cands]
+        if not cands:
+            self._matrix = None
+            return
+
+        # Resolve from cache where possible (keyed by content hash); embed the rest.
+        to_embed: list[str] = []
+        to_embed_idx: list[int] = []
+        vectors: list[Optional[list[float]]] = [None] * len(cands)
+        for i, n in enumerate(cands):
+            key = n.source_hash
+            if key and key in self._cache:
+                vectors[i] = self._cache[key]
+            else:
+                to_embed.append(node_document(n))
+                to_embed_idx.append(i)
+
+        if to_embed:
+            logger.info("semantic: embedding %d/%d candidate symbols (rest cached)",
+                        len(to_embed), len(cands))
+            fresh = self._embed_texts(to_embed)
+            for j, vec in zip(to_embed_idx, fresh):
+                vectors[j] = vec
+                h = cands[j].source_hash
+                if h:
+                    self._cache[h] = vec
+
+        self._matrix = _l2_normalize(np.asarray(vectors, dtype=np.float64))
+
+    # ── ranking ───────────────────────────────────────────────────────────────
+    def rank(self, issue: str, graph: RepoGraph) -> list[tuple[str, float]]:
+        if self._matrix is None or not self._ids:
+            self.index(graph)
+        if self._matrix is None or not self._ids:
+            return []
+        q = self._embedder([issue])[0]
+        qv = np.asarray(q, dtype=np.float64)
+        qn = np.linalg.norm(qv)
+        if qn == 0.0 or math.isnan(qn):
+            return []
+        qv = qv / qn
+        sims = self._matrix @ qv  # cosine (both sides L2-normalized)
+        order = np.argsort(-sims)
+        return [(self._ids[i], float(sims[i])) for i in order]

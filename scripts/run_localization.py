@@ -31,6 +31,7 @@ from trace_grag.ingestion.snapshot import cleanup, fetch_snapshot  # noqa: E402
 from trace_grag.parsing.python_parser import PythonParser  # noqa: E402
 from trace_grag.retrieval.graph_retrieval import GraphRetriever  # noqa: E402
 from trace_grag.retrieval.lexical import BM25Retriever  # noqa: E402
+from trace_grag.retrieval.semantic import SemanticRetriever  # noqa: E402
 
 MANIFEST = ROOT / "data" / "benchmark_manifest.jsonl"
 SNAP_DIR = ROOT / ".snapshots" / "current"
@@ -41,11 +42,17 @@ def load_manifest() -> list[dict]:
     return [json.loads(l) for l in open(MANIFEST)]
 
 
-def build_retrievers() -> list:
-    return [BM25Retriever(), GraphRetriever()]
+def build_retrievers(use_semantic: bool = False) -> list:
+    # E1 (BM25) and E3 (graph) are dependency-free and always run. E2 (semantic)
+    # is opt-in because it needs a local Ollama embedding backend; keeping it off
+    # by default means the harness stays reproducible without a running daemon.
+    retrievers = [BM25Retriever(), GraphRetriever()]
+    if use_semantic:
+        retrievers.append(SemanticRetriever())  # E2 — default OllamaEmbedder
+    return retrievers
 
 
-def run_task(task: dict, keep_graph: bool) -> dict:
+def run_task(task: dict, keep_graph: bool, use_semantic: bool = False) -> dict:
     t0 = time.time()
     root = fetch_snapshot(task["repo"], task["base_commit"], str(SNAP_DIR))
     nodes, edges = PythonParser(str(root), repo_name=task["repo"].replace("/", "__")).parse()
@@ -68,7 +75,7 @@ def run_task(task: dict, keep_graph: bool) -> dict:
     if keep_graph:
         g.save(str(OUT_DIR / "graphs" / f"{task['task_id']}.json"))
 
-    for r in build_retrievers():
+    for r in build_retrievers(use_semantic):
         ts = time.time()
         ranked = r.rank(task["problem_statement"], g)
         latency = time.time() - ts
@@ -88,6 +95,8 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--split", choices=["dev", "eval", "all"], default="all")
     ap.add_argument("--keep-graph", action="store_true")
+    ap.add_argument("--semantic", action="store_true",
+                    help="also run E2 dense retrieval (requires a local Ollama)")
     args = ap.parse_args()
     logging.basicConfig(level=logging.WARNING, format="%(message)s")
 
@@ -107,17 +116,17 @@ def main() -> None:
     with open(out_path, "w") as f:
         for i, task in enumerate(tasks, 1):
             try:
-                res = run_task(task, args.keep_graph)
+                res = run_task(task, args.keep_graph, args.semantic)
             except Exception as e:  # noqa: BLE001 - log failure, never silently drop
                 res = {"task_id": task["task_id"], "repo": task["repo"],
                        "split": task["split"], "error": repr(e)}
                 print(f"[{i}/{len(tasks)}] {task['task_id']}: ERROR {e!r}")
             else:
-                b = res["strategies"]["bm25"]; gr = res["strategies"]["graph"]
+                parts = " | ".join(
+                    f"{name} hit@10={sc['hit@10']:.0f} mrr={sc['mrr']:.2f}"
+                    for name, sc in res["strategies"].items())
                 print(f"[{i}/{len(tasks)}] {task['task_id']:30s} "
-                      f"nodes={res['graph']['nodes']:5d} gold={res['n_gold_symbols']} "
-                      f"| bm25 hit@10={b['hit@10']:.0f} mrr={b['mrr']:.2f} "
-                      f"| graph hit@10={gr['hit@10']:.0f} mrr={gr['mrr']:.2f}")
+                      f"nodes={res['graph']['nodes']:5d} gold={res['n_gold_symbols']} | {parts}")
             f.write(json.dumps(res) + "\n")
             f.flush()
     print(f"\nwrote {out_path}")
